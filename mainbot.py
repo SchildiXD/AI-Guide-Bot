@@ -5,13 +5,20 @@ import os
 import re
 from flask import Flask
 from threading import Thread
+import uuid
+import asyncio
+
+# Create a unique instance ID for this bot instance
+INSTANCE_ID = str(uuid.uuid4())[:8]
+print(f"Starting bot instance: {INSTANCE_ID}")
 
 # Flask web server to satisfy Render's port detection
 app = Flask('')
+app.instance_id = INSTANCE_ID
 
 @app.route('/')
 def home():
-    return "Bot is running!"
+    return f"Bot is running! Instance: {INSTANCE_ID}"
 
 def run():
     port = int(os.environ.get('PORT', 5000))
@@ -20,11 +27,50 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
 # Bot setup
 intents = discord.Intents.default()
 intents.message_content = True  # This is required for message commands
 
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Track active instances
+active_instances = {INSTANCE_ID: asyncio.get_event_loop().time()}
+
+@bot.event
+async def on_ready():
+    print(f'{bot.user} has logged in! Instance: {INSTANCE_ID}')
+    print(f'Loaded {len(runes_data)} runes')
+    
+    # Register this instance as active
+    active_instances[INSTANCE_ID] = asyncio.get_event_loop().time()
+
+@bot.event
+async def on_message(message):
+    # Prevent bot from responding to itself
+    if message.author == bot.user:
+        return
+    
+    # Only process messages if this is the most recent instance
+    current_time = asyncio.get_event_loop().time()
+    
+    # Clean up old instances (older than 60 seconds)
+    expired_instances = []
+    for instance_id, start_time in active_instances.items():
+        if current_time - start_time > 60:
+            expired_instances.append(instance_id)
+    
+    for expired in expired_instances:
+        del active_instances[expired]
+    
+    # Only process if this is the most recent instance
+    if active_instances:
+        most_recent_instance = max(active_instances.keys(), key=lambda x: active_instances[x])
+        if INSTANCE_ID != most_recent_instance:
+            return
+    
+    # Process commands
+    await bot.process_commands(message)
 
 # Function to parse the Excel file and extract rune data
 def load_runes_from_excel():
@@ -107,11 +153,6 @@ def load_runes_from_excel():
 # Load runes when bot starts
 runes_data = load_runes_from_excel()
 
-@bot.event
-async def on_ready():
-    print(f'{bot.user} has logged in!')
-    print(f'Loaded {len(runes_data)} runes')
-
 # Remove default help command to prevent duplicates
 bot.remove_command('help')
 
@@ -119,7 +160,7 @@ bot.remove_command('help')
 async def ping(ctx):
     """Check if the bot is responsive"""
     latency = bot.latency * 1000  # Convert to milliseconds
-    await ctx.send(f'Pong! Latency: {latency:.2f}ms')
+    await ctx.send(f'Pong! Latency: {latency:.2f}ms (Instance: {INSTANCE_ID})')
 
 @bot.command(name='rune')
 async def get_rune_info(ctx, *, rune_name: str):
