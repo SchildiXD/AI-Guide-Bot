@@ -32,12 +32,12 @@ def load_runes_from_excel():
     
     try:
         # Check if file exists
-        if not os.path.exists('Mappe1.xlsx'):
-            print("ERROR: Mappe1.xlsx file not found!")
+        if not os.path.exists('BROT13.xlsx'):
+            print("ERROR: BROT13.xlsx file not found!")
             return {}
         
-        print("Loading runes from Mappe1.xlsx...")
-        df = pd.read_excel('Mappe1.xlsx', sheet_name='Better Rune Order (T13 Late Gam', header=None)
+        print("Loading runes from BROT13.xlsx...")
+        df = pd.read_excel('BROT13.xlsx', sheet_name='Better Rune Order (T13 Late Gam', header=None)
         print(f"Successfully loaded Excel file with {len(df)} rows")
         
         # Parse the data to extract rune information
