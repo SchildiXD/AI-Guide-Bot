@@ -3,6 +3,23 @@ from discord.ext import commands
 import pandas as pd
 import os
 import re
+from flask import Flask
+from threading import Thread
+
+# Flask web server to satisfy Render's port detection
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 # Bot setup
 intents = discord.Intents.default()
@@ -201,6 +218,5 @@ async def search_runes(ctx, *, query: str):
 
 # Keep the bot running on the correct port for Render
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    # The bot will run on the token, not a web server port
+    keep_alive()
     bot.run(os.getenv('DISCORD_TOKEN'))
