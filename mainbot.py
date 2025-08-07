@@ -271,6 +271,42 @@ async def search_runes(ctx, *, query: str):
     
     await ctx.send(embed=embed)
 
+
+@bot.command(name='latest')
+async def latest_runes(ctx):
+    """Show the latest recommended runes from the spreadsheet"""
+    if not runes_data:
+        await ctx.send("No runes data available.")
+        return
+    
+    # Get runes from the "Recommended" section (first few rows)
+    recommended_runes = [
+        "Bloom", "Vexed", "Blizzard", "Aether", "Kingslayer", 
+        "Mystery", "Thorn", "Divinity", "Abyssium", "Prosperity"
+    ]
+    
+    rune_list = []
+    for rune_name in recommended_runes[:8]:  # Show first 8
+        if rune_name in runes_data:
+            rarity = runes_data[rune_name].get("rarity", "N/A")
+            rune_list.append(f"• **{rune_name}** ({rarity})")
+    
+    if not rune_list:
+        await ctx.send("Could not load recommended runes.")
+        return
+    
+    embed = discord.Embed(
+        title="📈 Latest Recommended Runes",
+        description="Top priority runes to grind:\n" + "\n".join(rune_list),
+        color=discord.Color.teal()
+    )
+    
+    embed.set_footer(text="Based on current T13 late game progression")
+    
+    await ctx.send(embed=embed)
+
+
+
 @bot.command(name='help')
 async def help_command(ctx):
     """Display help information"""
