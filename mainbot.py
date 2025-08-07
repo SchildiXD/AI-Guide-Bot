@@ -3,23 +3,6 @@ from discord.ext import commands
 import pandas as pd
 import os
 import re
-from flask import Flask
-from threading import Thread
-
-# Flask web server to satisfy Render's port detection
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
 
 # Bot setup
 intents = discord.Intents.default()
@@ -32,8 +15,14 @@ def load_runes_from_excel():
     runes = {}
     
     try:
-        # Read the Excel file
-        df = pd.read_excel('Mappe1.xlsx', sheet_name='Better Rune Order (T13 Late Gam', header=None)
+        # Check if file exists
+        if not os.path.exists('Mappe1.xlsx'):
+            print("ERROR: Mappe1.xlsx file not found!")
+            return {}
+        
+        print("Loading runes from Mappe1.xlsx...")
+        df = pd.read_excel('Mappe1.xlsx', sheet_name='Tabelle1', header=None)
+        print(f"Successfully loaded Excel file with {len(df)} rows")
         
         # Parse the data to extract rune information
         current_category = ""
@@ -52,7 +41,7 @@ def load_runes_from_excel():
                     current_category = cell.strip()
                     break
             
-            # Look for rune entries (cells that contain rarity patterns like "1/X")
+            # Look for rune entries (cells that contain rarity patterns like "1/")
             for cell in row_data:
                 if "1/" in cell and not cell.startswith("http"):
                     # Extract rune name and rarity
@@ -106,6 +95,15 @@ runes_data = load_runes_from_excel()
 async def on_ready():
     print(f'{bot.user} has logged in!')
     print(f'Loaded {len(runes_data)} runes')
+
+# Remove default help command to prevent duplicates
+bot.remove_command('help')
+
+@bot.command(name='ping')
+async def ping(ctx):
+    """Check if the bot is responsive"""
+    latency = bot.latency * 1000  # Convert to milliseconds
+    await ctx.send(f'Pong! Latency: {latency:.2f}ms')
 
 @bot.command(name='rune')
 async def get_rune_info(ctx, *, rune_name: str):
@@ -216,7 +214,25 @@ async def search_runes(ctx, *, query: str):
     
     await ctx.send(embed=embed)
 
+@bot.command(name='help')
+async def help_command(ctx):
+    """Display help information"""
+    embed = discord.Embed(
+        title="Ascenders Incremental Bot Help",
+        description="Commands for getting rune information:",
+        color=discord.Color.gold()
+    )
+    
+    embed.add_field(name="!rune [rune_name]", value="Get detailed information about a specific rune", inline=False)
+    embed.add_field(name="!runes", value="List all available runes", inline=False)
+    embed.add_field(name="!category [category]", value="List runes by category (Basic, Color, Nature, etc.)", inline=False)
+    embed.add_field(name="!search [query]", value="Search for runes by name, rarity, or category", inline=False)
+    embed.add_field(name="!ping", value="Check if the bot is responsive", inline=False)
+    
+    await ctx.send(embed=embed)
+
 # Keep the bot running on the correct port for Render
 if __name__ == "__main__":
-    keep_alive()
+    port = int(os.environ.get('PORT', 5000))
+    # The bot will run on the token, not a web server port
     bot.run(os.getenv('DISCORD_TOKEN'))
