@@ -37,7 +37,7 @@ def load_runes_from_excel():
             return {}
         
         print("Loading runes from Mappe1.xlsx...")
-        df = pd.read_excel('Mappe1.xlsx', sheet_name='Tabelle1', header=None)
+        df = pd.read_excel('Mappe1.xlsx', sheet_name='Better Rune Order (T13 Late Gam', header=None)
         print(f"Successfully loaded Excel file with {len(df)} rows")
         
         # Parse the data to extract rune information
