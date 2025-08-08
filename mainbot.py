@@ -7,9 +7,10 @@ from flask import Flask
 from threading import Thread
 import uuid
 import asyncio
+import requests
+import time
 import json
 from datetime import datetime
-
 # Create a unique instance ID for this bot instance
 INSTANCE_ID = str(uuid.uuid4())[:8]
 print(f"Starting bot instance: {INSTANCE_ID}")
@@ -34,47 +35,126 @@ def load_changelog():
 @app.route('/')
 def home():
     changelog = load_changelog()
+    latest_changes = changelog['changes'][0] if changelog['changes'] else {}
+    
     return f"""
     <html>
         <head>
-            <title>Ascenders Bot</title>
+            <title>Ascenders Bot Dashboard</title>
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                .version {{ background: #f0f0f0; padding: 10px; border-radius: 5px; }}
+                body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+                .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                .header {{ text-align: center; color: #2c3e50; }}
+                .version-box {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+                .changelog-box {{ background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }}
                 .status {{ color: green; font-weight: bold; }}
+                .feature {{ color: #27ae60; }}
+                .fix {{ color: #e74c3c; }}
+                h1, h2, h3 {{ color: #3498db; }}
+                code {{ background: #ecf0f1; padding: 2px 5px; border-radius: 3px; }}
+                .nav {{ margin: 20px 0; }}
+                .nav a {{ margin: 0 10px; text-decoration: none; color: #3498db; }}
+                .nav a:hover {{ text-decoration: underline; }}
             </style>
         </head>
         <body>
-            <h1>Ascenders Incremental Bot</h1>
-            <p class="status">✓ Bot is running!</p>
-            <div class="version">
-                <h2>Version Information</h2>
-                <p><strong>Current Version:</strong> v{changelog['version']}</p>
-                <p><strong>Last Updated:</strong> {changelog['last_updated']}</p>
-                <p><strong>Instance ID:</strong> {INSTANCE_ID}</p>
+            <div class="container">
+                <div class="header">
+                    <h1>🔮 Ascenders Incremental Bot</h1>
+                    <p class="status">✓ Bot is running!</p>
+                </div>
+                
+                <div class="version-box">
+                    <h2>Version Information</h2>
+                    <p><strong>Current Version:</strong> v{changelog['version']}</p>
+                    <p><strong>Last Updated:</strong> {changelog['last_updated']}</p>
+                    <p><strong>Instance ID:</strong> {INSTANCE_ID}</p>
+                </div>
+                
+                <div class="changelog-box">
+                    <h2>Latest Changes (v{latest_changes.get('version', 'N/A')})</h2>
+                    <p><strong>Released:</strong> {latest_changes.get('date', 'N/A')}</p>
+                    
+                    <h3>✨ New Features</h3>
+                    <ul>
+                        {''.join([f'<li class="feature">{feature}</li>' for feature in latest_changes.get('features', [])]) or '<li>No new features</li>'}
+                    </ul>
+                    
+                    <h3>🔧 Bug Fixes</h3>
+                    <ul>
+                        {''.join([f'<li class="fix">{fix}</li>' for fix in latest_changes.get('fixes', [])]) or '<li>No bug fixes</li>'}
+                    </ul>
+                </div>
+                
+                <h2>Bot Commands</h2>
+                <ul>
+                    <li><code>!rune [name]</code> - Get rune information</li>
+                    <li><code>!runes</code> - List all runes</li>
+                    <li><code>!category [name]</code> - Filter runes by category</li>
+                    <li><code>!search [query]</code> - Search for runes</li>
+                    <li><code>!ping</code> - Check bot status</li>
+                    <li><code>!version</code> - Show bot version</li>
+                    <li><code>!changelog</code> - Show recent changes</li>
+                </ul>
+                
+                <div class="nav">
+                    <a href="/health">Health Check</a> | 
+                    <a href="/status">Detailed Status</a> | 
+                    <a href="/changelog">Full Changelog</a>
+                </div>
             </div>
-            <h2>Bot Commands</h2>
-            <ul>
-                <li><code>!rune [name]</code> - Get rune information</li>
-                <li><code>!runes</code> - List all runes</li>
-                <li><code>!category [name]</code> - Filter runes by category</li>
-                <li><code>!search [query]</code> - Search for runes</li>
-                <li><code>!ping</code> - Check bot status</li>
-                <li><code>!version</code> - Show bot version</li>
-                <li><code>!changelog</code> - Show recent changes</li>
-            </ul>
-            <p><a href="/health">Health Check</a> | <a href="/status">Detailed Status</a></p>
         </body>
     </html>
     """
 
-def run():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
+@app.route('/changelog')
+def full_changelog():
+    changelog = load_changelog()
+    
+    changes_html = ""
+    for change in changelog['changes']:
+        changes_html += f"""
+        <div class="changelog-box">
+            <h3>Version {change['version']} - {change['date']}</h3>
+            <h4>✨ Features</h4>
+            <ul>
+                {''.join([f'<li class="feature">{feature}</li>' for feature in change.get('features', [])]) or '<li>No new features</li>'}
+            </ul>
+            <h4>🔧 Fixes</h4>
+            <ul>
+                {''.join([f'<li class="fix">{fix}</li>' for fix in change.get('fixes', [])]) or '<li>No bug fixes</li>'}
+            </ul>
+        </div>
+        """
+    
+    return f"""
+    <html>
+        <head>
+            <title>Changelog - Ascenders Bot</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+                .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                .header {{ text-align: center; color: #2c3e50; }}
+                .changelog-box {{ background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+                .feature {{ color: #27ae60; }}
+                .fix {{ color: #e74c3c; }}
+                h1, h2, h3, h4 {{ color: #3498db; }}
+                a {{ text-decoration: none; color: #3498db; }}
+                a:hover {{ text-decoration: underline; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📜 Bot Changelog</h1>
+                    <p>Current Version: v{changelog['version']} | Last Updated: {changelog['last_updated']}</p>
+                </div>
+                <a href="/">&larr; Back to Dashboard</a>
+                {changes_html}
+            </div>
+        </body>
+    </html>
+    """
 
 @app.route('/status')
 def status():
@@ -84,12 +164,49 @@ def status():
         "version": changelog['version'],
         "instance_id": INSTANCE_ID,
         "last_updated": changelog['last_updated'],
-        "uptime": "active"
+        "uptime": "active",
+        "timestamp": datetime.now().isoformat()
     }
 
 @app.route('/health')
 def health():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.now().isoformat(), "instance_id": INSTANCE_ID}
+
+def run():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# Anti-sleep functionality
+def keep_alive_ping():
+    """Ping the Render service to keep it alive"""
+    while True:
+        try:
+            # Only run on Render
+            if os.environ.get('RENDER'):
+                render_url = os.environ.get('RENDER_EXTERNAL_URL')
+                if render_url:
+                    requests.get(render_url, timeout=10)
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] Pinged Render service to prevent sleep")
+                else:
+                    # Fallback to pinging the health endpoint
+                    requests.get(f"http://localhost:{os.environ.get('PORT', 5000)}/health", timeout=10)
+        except Exception as e:
+            print(f"Ping failed: {e}")
+        
+        # Wait 10 minutes (less than Render's 15-minute sleep timeout)
+        time.sleep(600)
+
+def start_keep_alive_service():
+    """Start the anti-sleep service"""
+    if os.environ.get('RENDER'):
+        t = Thread(target=keep_alive_ping)
+        t.daemon = True
+        t.start()
+        print("Anti-sleep service started")
 
 # Bot setup
 intents = discord.Intents.default()
@@ -499,4 +616,5 @@ async def help_command(ctx):
 # Keep the bot running on the correct port for Render
 if __name__ == "__main__":
     keep_alive()  # Start the web server
+    start_keep_alive_service()
     bot.run(os.getenv('DISCORD_TOKEN'))  # Start the Discord bot
