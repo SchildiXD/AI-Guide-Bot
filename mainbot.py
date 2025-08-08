@@ -7,6 +7,8 @@ from flask import Flask
 from threading import Thread
 import uuid
 import asyncio
+import json
+from datetime import datetime
 
 # Create a unique instance ID for this bot instance
 INSTANCE_ID = str(uuid.uuid4())[:8]
@@ -16,9 +18,55 @@ print(f"Starting bot instance: {INSTANCE_ID}")
 app = Flask('')
 app.instance_id = INSTANCE_ID
 
+def load_changelog():
+    """Load changelog data from file"""
+    try:
+        with open('changelog.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {
+            "version": BOT_VERSION,
+            "last_updated": datetime.now().strftime("%Y-%m-%d"),
+            "changes": []
+        }
+
+
 @app.route('/')
 def home():
-    return f"Bot is running! Instance: {INSTANCE_ID}"
+    changelog = load_changelog()
+    return f"""
+    <html>
+        <head>
+            <title>Ascenders Bot</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                .version {{ background: #f0f0f0; padding: 10px; border-radius: 5px; }}
+                .status {{ color: green; font-weight: bold; }}
+            </style>
+        </head>
+        <body>
+            <h1>Ascenders Incremental Bot</h1>
+            <p class="status">✓ Bot is running!</p>
+            <div class="version">
+                <h2>Version Information</h2>
+                <p><strong>Current Version:</strong> v{changelog['version']}</p>
+                <p><strong>Last Updated:</strong> {changelog['last_updated']}</p>
+                <p><strong>Instance ID:</strong> {INSTANCE_ID}</p>
+            </div>
+            <h2>Bot Commands</h2>
+            <ul>
+                <li><code>!rune [name]</code> - Get rune information</li>
+                <li><code>!runes</code> - List all runes</li>
+                <li><code>!category [name]</code> - Filter runes by category</li>
+                <li><code>!search [query]</code> - Search for runes</li>
+                <li><code>!ping</code> - Check bot status</li>
+                <li><code>!version</code> - Show bot version</li>
+                <li><code>!changelog</code> - Show recent changes</li>
+            </ul>
+            <p><a href="/health">Health Check</a> | <a href="/status">Detailed Status</a></p>
+        </body>
+    </html>
+    """
 
 def run():
     port = int(os.environ.get('PORT', 5000))
@@ -27,6 +75,21 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
+@app.route('/status')
+def status():
+    changelog = load_changelog()
+    return {
+        "status": "running",
+        "version": changelog['version'],
+        "instance_id": INSTANCE_ID,
+        "last_updated": changelog['last_updated'],
+        "uptime": "active"
+    }
+
+@app.route('/health')
+def health():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 # Bot setup
 intents = discord.Intents.default()
@@ -302,6 +365,115 @@ async def latest_runes(ctx):
     )
     
     embed.set_footer(text="Based on current T13 late game progression")
+    
+    await ctx.send(embed=embed)
+
+
+
+    # Bot version
+BOT_VERSION = "1.2.0"
+
+def load_changelog():
+    """Load changelog data from file"""
+    try:
+        with open('changelog.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Return default changelog if file doesn't exist
+        return {
+            "version": BOT_VERSION,
+            "last_updated": datetime.now().strftime("%Y-%m-%d"),
+            "changes": [{
+                "version": BOT_VERSION,
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "features": ["Initial changelog system"],
+                "fixes": []
+            }]
+        }
+
+@bot.command(name='version')
+async def show_version(ctx):
+    """Show bot version information"""
+    changelog = load_changelog()
+    
+    embed = discord.Embed(
+        title="Ascenders Bot Version",
+        color=discord.Color.blue()
+    )
+    
+    embed.add_field(name="Version", value=f"`v{changelog['version']}`", inline=True)
+    embed.add_field(name="Last Updated", value=changelog['last_updated'], inline=True)
+    embed.add_field(name="Instance ID", value=f"`{INSTANCE_ID}`", inline=False)
+    
+    await ctx.send(embed=embed)
+
+@bot.command(name='changelog')
+async def show_changelog(ctx, version: str = None):
+    """Show changelog information"""
+    changelog = load_changelog()
+    
+    if version:
+        # Show specific version
+        for change in changelog['changes']:
+            if change['version'] == version:
+                embed = discord.Embed(
+                    title=f"Changelog - Version {version}",
+                    color=discord.Color.green()
+                )
+                embed.add_field(name="Date", value=change['date'], inline=False)
+                
+                if change['features']:
+                    features = "\n".join([f"• {feature}" for feature in change['features']])
+                    embed.add_field(name="New Features", value=features, inline=False)
+                
+                if change['fixes']:
+                    fixes = "\n".join([f"• {fix}" for fix in change['fixes']])
+                    embed.add_field(name="Bug Fixes", value=fixes, inline=False)
+                
+                await ctx.send(embed=embed)
+                return
+        
+        await ctx.send(f"Version `{version}` not found in changelog.")
+        return
+    
+    # Show latest changes
+    latest = changelog['changes'][0]
+    embed = discord.Embed(
+        title="Latest Changes",
+        color=discord.Color.gold()
+    )
+    
+    embed.add_field(name="Version", value=f"`v{latest['version']}`", inline=True)
+    embed.add_field(name="Date", value=latest['date'], inline=True)
+    
+    if latest['features']:
+        features = "\n".join([f"• {feature}" for feature in latest['features']])
+        embed.add_field(name="New Features", value=features, inline=False)
+    
+    if latest['fixes']:
+        fixes = "\n".join([f"• {fix}" for fix in latest['fixes']])
+        embed.add_field(name="Bug Fixes", value=fixes, inline=False)
+    
+    embed.set_footer(text=f"Bot Version: v{changelog['version']} | Use !changelog [version] for older changes")
+    
+    await ctx.send(embed=embed)
+
+@bot.command(name='versions')
+async def show_all_versions(ctx):
+    """Show all available versions"""
+    changelog = load_changelog()
+    
+    versions = []
+    for change in changelog['changes'][:10]:  # Show last 10 versions
+        versions.append(f"• `v{change['version']}` - {change['date']}")
+    
+    embed = discord.Embed(
+        title="Bot Version History",
+        description="\n".join(versions),
+        color=discord.Color.purple()
+    )
+    
+    embed.set_footer(text="Use !changelog [version] to see details for a specific version")
     
     await ctx.send(embed=embed)
 

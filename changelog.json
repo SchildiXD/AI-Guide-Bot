@@ -1,0 +1,41 @@
+{
+  "version": "1.2.0",
+  "last_updated": "2024-01-15",
+  "changes": [
+    {
+      "version": "1.2.0",
+      "date": "2024-01-15",
+      "features": [
+        "Added changelog system",
+        "Added version tracking",
+        "Improved rune data parsing"
+      ],
+      "fixes": [
+        "Fixed duplicate message issues",
+        "Optimized bot startup time"
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2024-01-10",
+      "features": [
+        "Added rune search functionality",
+        "Added category filtering",
+        "Added ping command"
+      ],
+      "fixes": [
+        "Resolved spreadsheet parsing errors"
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2024-01-05",
+      "features": [
+        "Initial release",
+        "Basic rune information commands",
+        "Spreadsheet integration"
+      ],
+      "fixes": []
+    }
+  ]
+}
